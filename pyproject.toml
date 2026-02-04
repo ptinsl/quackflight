@@ -1,0 +1,21 @@
+[project]
+name = "quackflight"
+version = "0.1.0"
+description = "DuckDB Arrow Flight server with Azure Delta Lake support"
+requires-python = ">=3.9"
+dependencies = [
+    "flask",
+    "flask-httpauth",
+    "flask-cors",
+    "cachetools",
+    "duckdb>=1.0.0",
+    "msgpack",
+    "pyarrow>=14.0.0",
+    "zstandard",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "ruff",
+]

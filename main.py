@@ -25,6 +25,9 @@ import logging
 import sys
 from threading import Lock
 
+# Azure Delta support
+from azure_delta import AzureConfig, setup_azure_extensions, discover_delta_tables
+
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
@@ -52,6 +55,8 @@ os.environ['VITE_SELFSERVICE'] = 'true'
 dbpath = os.getenv('DBPATH', '/tmp/')
 # Check for custom UI path
 custom_ui_path = os.getenv('CUSTOM_UI_PATH')
+# Azure configuration (loaded from environment)
+azure_config = AzureConfig.from_env()
 
 if custom_ui_path:
     app = Flask(__name__, static_folder=custom_ui_path, static_url_path="")
@@ -79,13 +84,21 @@ class ConnectionManager:
     
     def _setup_extensions(self, conn: duckdb.DuckDBPyConnection):
         """Set up required extensions for a connection"""
+        # ClickHouse compatibility extensions
         try:
             conn.install_extension("chsql", repository="community")
             conn.install_extension("chsql_native", repository="community")
             conn.load_extension("chsql")
             conn.load_extension("chsql_native")
         except Exception as e:
-            logger.warning(f"Failed to initialize extensions: {e}")
+            logger.warning(f"Failed to initialize chsql extensions: {e}")
+
+        # Azure and Delta extensions
+        setup_azure_extensions(conn, azure_config)
+
+        # Auto-discover Delta tables if Azure is configured
+        if azure_config:
+            discover_delta_tables(conn, azure_config)
     
     def get_connection(self, auth_hash: Optional[str] = None) -> duckdb.DuckDBPyConnection:
         """Get or create a connection for the given auth hash"""
@@ -355,7 +368,7 @@ def handle_404(e):
 host = os.getenv('HOST', '0.0.0.0')
 port = int(os.getenv('PORT', 8123))
 flight_host = os.getenv('FLIGHT_HOST', 'localhost')
-flight_port = int(os.getenv('FLIGHT_PORT', 8815))
+flight_port = int(os.getenv('FLIGHT_PORT', 8080))
 path = os.getenv('DATA', '.duckdb_data')
 
 def parse_ticket(ticket):
